@@ -70,6 +70,6 @@ jobs:
 
       - name: Push de l'image Docker
         run: |
-          docker tag breakableflask-test:ci ${{ secrets.DOCKER_USERNAME }}/breakableflask:latest
+          docker tag breakableflask-local:ci ${{ secrets.DOCKER_USERNAME }}/breakableflask:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/breakableflask:latest
           echo " Déploiement Docker terminé"
