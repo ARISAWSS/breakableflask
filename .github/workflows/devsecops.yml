@@ -1,24 +1,54 @@
 name: Automatisation des tests DevSecOps
-on: push
+
+on: 
+  push:
+  pull_request:
+
 jobs:
- Dependances:
+  Dependances:
+    name: Vérification requirements.txt
     runs-on: ubuntu-latest
+
     steps:
-      - name: Dependances
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Vérifier la présence de requirements.txt
         run: |
-          echo "ecrire ici le scrypt de contrôle des dépendances"
+          if [ ! -f "requirements.txt" ]; then
+            echo " requirements.txt manquant !"
+            exit 1
+          fi
+          echo " requirements.txt trouvé"
+
+      - name: Tester l'installation des dépendances (venv)
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          echo " Dépendances installées avec succès"
+
   Dockerfile:
+    name: Vérification Dockerfile
     runs-on: ubuntu-latest
     needs: Dependances
+
     steps:
-      - name: Test Dockerfile
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Vérifier la présence du Dockerfile
         run: |
-          echo "ecrire ici le scrypt de contrôle du Dockerfile"
-  Deploy:
-    runs-on: ubuntu-latest
-    needs: Dockerfile
-    steps:
-      - name: Deploy
+          if [ ! -f "Dockerfile" ]; then
+            echo " Dockerfile manquant !"
+            exit 1
+          fi
+          echo " Dockerfile trouvé"
+
+      - name: Tester le build du Dockerfile
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
-          echo "Rien à faire ici. Votre application est prête à être déployée"
- 
+          docker build -t breakableflask-test:ci .
+          echo " Build Docker terminé"
