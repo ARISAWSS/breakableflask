@@ -16,10 +16,31 @@ jobs:
       - name: Vérifier la présence de requirements.txt
         run: |
           if [ ! -f "requirements.txt" ]; then
-            echo " requirements.txt manquant !"
+            echo "❌ requirements.txt manquant !"
             exit 1
           fi
-          echo " requirements.txt trouvé"
+          echo "✅ requirements.txt trouvé"
+
+      - name: Vérifier la syntaxe de requirements.txt
+        run: |
+          echo "Vérification de la syntaxe de requirements.txt..."
+          # Vérifier que le fichier n'est pas vide
+          if [ ! -s "requirements.txt" ]; then
+            echo "❌ requirements.txt est vide !"
+            exit 1
+          fi
+          # Vérifier le format de base (chaque ligne doit contenir un nom de package)
+          while IFS= read -r line; do
+            # Ignorer les lignes vides et les commentaires
+            if [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]]; then
+              # Vérifier qu'il y a au moins un caractère alphanumérique
+              if [[ ! "$line" =~ [a-zA-Z0-9] ]]; then
+                echo "❌ Ligne invalide dans requirements.txt: $line"
+                exit 1
+              fi
+            fi
+          done < requirements.txt
+          echo "✅ Syntaxe de requirements.txt valide"
 
       - name: Tester l'installation des dépendances (venv)
         run: |
@@ -27,7 +48,13 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          echo " Dépendances installées avec succès"
+          echo "✅ Dépendances installées avec succès"
+
+      - name: Vérifier les versions des dépendances installées
+        run: |
+          source venv/bin/activate
+          pip list
+          echo "✅ Liste des dépendances installées affichée"
 
   Dockerfile:
     name: Vérification Dockerfile
@@ -41,17 +68,51 @@ jobs:
       - name: Vérifier la présence du Dockerfile
         run: |
           if [ ! -f "Dockerfile" ]; then
-            echo " Dockerfile manquant !"
+            echo "❌ Dockerfile manquant !"
             exit 1
           fi
-          echo " Dockerfile trouvé"
+          echo "✅ Dockerfile trouvé"
+
+      - name: Vérifier la syntaxe du Dockerfile avec hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+          ignore: DL3008,DL3009,DL3013
+        continue-on-error: true
+
+      - name: Vérifier que le Dockerfile utilise requirements.txt
+        run: |
+          if ! grep -q "requirements.txt" Dockerfile; then
+            echo "❌ Le Dockerfile ne référence pas requirements.txt !"
+            exit 1
+          fi
+          echo "✅ Dockerfile référence requirements.txt"
+
+      - name: Vérifier la structure de base du Dockerfile
+        run: |
+          # Vérifier que le Dockerfile contient FROM
+          if ! grep -q "^FROM" Dockerfile; then
+            echo "❌ Le Dockerfile ne contient pas d'instruction FROM !"
+            exit 1
+          fi
+          # Vérifier que le Dockerfile contient CMD ou ENTRYPOINT
+          if ! grep -qE "^(CMD|ENTRYPOINT)" Dockerfile; then
+            echo "⚠️  Le Dockerfile ne contient pas d'instruction CMD ou ENTRYPOINT"
+          fi
+          echo "✅ Structure de base du Dockerfile valide"
 
       - name: Tester le build du Dockerfile
         env:
           DOCKER_BUILDKIT: 1
         run: |
           docker build -t breakableflask-test:ci .
-          echo " Build Docker terminé"
+          echo "✅ Build Docker terminé avec succès"
+
+      - name: Vérifier que l'image Docker peut être créée
+        run: |
+          docker images | grep breakableflask-test
+          echo "✅ Image Docker créée avec succès"
 
   Deploy:
     name: Déploiement Docker
