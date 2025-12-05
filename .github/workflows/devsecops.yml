@@ -8,6 +8,9 @@ jobs:
   Dependances:
     name: Vérification requirements.txt
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout du code
@@ -56,10 +59,47 @@ jobs:
           pip list
           echo "✅ Liste des dépendances installées affichée"
 
+      - name: Scanner les dépendances avec Trivy (rapport complet)
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results-dependencies.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+          exit-on-eof: ''
+          ignore-unfixed: false
+          scanners: 'vuln,secret'
+          dependency-type: 'pypi'
+
+      - name: Vérifier les vulnérabilités CRITICAL dans les dépendances
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+          exit-on-eof: ''
+          ignore-unfixed: false
+          scanners: 'vuln'
+          dependency-type: 'pypi'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-dependencies.sarif'
+
   Dockerfile:
     name: Vérification Dockerfile
     runs-on: ubuntu-latest
     needs: Dependances
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout du code
@@ -113,6 +153,36 @@ jobs:
         run: |
           docker images | grep breakableflask-test
           echo "✅ Image Docker créée avec succès"
+
+      - name: Scanner l'image Docker avec Trivy (rapport complet)
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          image-ref: 'breakableflask-test:ci'
+          format: 'sarif'
+          output: 'trivy-results-image.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+          exit-on-eof: ''
+          ignore-unfixed: false
+          scanners: 'vuln,secret,config'
+
+      - name: Vérifier les vulnérabilités CRITICAL/HIGH dans l'image Docker
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'breakableflask-test:ci'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          exit-on-eof: ''
+          ignore-unfixed: false
+          scanners: 'vuln,config'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-image.sarif'
 
   Deploy:
     name: Déploiement Docker
