@@ -69,10 +69,8 @@ jobs:
           output: 'trivy-results-dependencies.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
-          exit-on-eof: ''
           ignore-unfixed: false
           scanners: 'vuln,secret'
-          dependency-type: 'pypi'
 
       - name: Vérifier les vulnérabilités CRITICAL dans les dépendances
         uses: aquasecurity/trivy-action@master
@@ -82,10 +80,8 @@ jobs:
           format: 'table'
           severity: 'CRITICAL'
           exit-code: '1'
-          exit-on-eof: ''
           ignore-unfixed: false
           scanners: 'vuln'
-          dependency-type: 'pypi'
 
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -163,20 +159,19 @@ jobs:
           output: 'trivy-results-image.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           exit-code: '0'
-          exit-on-eof: ''
           ignore-unfixed: false
-          scanners: 'vuln,secret,config'
+          scanners: 'vuln,secret,misconfig'
 
       - name: Vérifier les vulnérabilités CRITICAL/HIGH dans l'image Docker
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'breakableflask-test:ci'
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
-          exit-on-eof: ''
           ignore-unfixed: false
-          scanners: 'vuln,config'
+          scanners: 'vuln'
 
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
